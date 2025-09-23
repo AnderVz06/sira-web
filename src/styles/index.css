@@ -1,0 +1,189 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ */
+/* TOKENS (Tailwind emitirá bg-primary, text-foreground, ring-border…) */
+/* ------------------------------------------------------------------ */
+@theme {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-border: hsl(var(--border));
+  --color-ring: hsl(var(--ring));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+}
+
+/* ------------------------------------------------------------------ */
+/* THEMES: valores de variables por data-theme                        */
+/* ------------------------------------------------------------------ */
+@layer base {
+  :root,
+  [data-theme='light'] {
+    --background: 0 0% 100%;
+    --foreground: 222 31% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 31% 10%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 222 11% 35%;
+
+    --border: 214 32% 91%;
+    --ring: 222 76% 52%;
+
+    --primary: 222 76% 52%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 31% 15%;
+
+    --accent: 262 83% 58%;
+    --accent-foreground: 0 0% 100%;
+
+    --shadow: 222 47% 11%;
+  }
+
+  [data-theme='dark'] {
+    --background: 220 20% 7%;
+    --foreground: 120 35% 82%;
+
+    --card: 220 20% 9%;
+    --card-foreground: 120 35% 82%;
+
+    --muted: 220 14% 14%;
+    --muted-foreground: 120 20% 65%;
+
+    --border: 220 16% 20%;
+    --ring: 120 80% 45%;
+
+    --primary: 120 70% 55%;
+    --primary-foreground: 220 20% 7%;
+
+    --secondary: 220 16% 22%;
+    --secondary-foreground: 120 35% 82%;
+
+    --accent: 45 95% 55%;
+    --accent-foreground: 220 20% 7%;
+
+    --shadow: 220 40% 2%;
+  }
+
+  [data-theme='brand'] {
+    --background: 30 33% 94%;
+    --foreground: 23 32% 20%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 23 32% 20%;
+
+    --muted: 30 30% 90%;
+    --muted-foreground: 23 22% 35%;
+
+    --border: 28 30% 80%;
+    --ring: 20 54% 45%;
+
+    --primary: 20 54% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 28 35% 88%;
+    --secondary-foreground: 23 32% 25%;
+
+    --accent: 12 72% 50%;
+    --accent-foreground: 0 0% 100%;
+
+    --shadow: 23 55% 20%;
+  }
+
+  [data-theme='mint'] {
+    --background: 160 45% 95%;
+    --foreground: 180 30% 16%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 180 30% 16%;
+
+    --muted: 160 30% 90%;
+    --muted-foreground: 180 16% 35%;
+
+    --border: 160 22% 72%;
+    --ring: 160 70% 38%;
+
+    --primary: 160 60% 35%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 150 35% 88%;
+    --secondary-foreground: 180 30% 16%;
+
+    --accent: 200 80% 45%;
+    --accent-foreground: 0 0% 100%;
+
+    --shadow: 180 25% 18%;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+
+  *:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* COMPONENTS                                                          */
+/* ------------------------------------------------------------------ */
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 font-medium transition;
+  }
+  .btn-primary {
+    @apply bg-primary text-primary-foreground hover:opacity-90 shadow-soft;
+  }
+  .btn-secondary {
+    @apply bg-secondary text-secondary-foreground hover:opacity-90;
+  }
+  .badge {
+    @apply inline-flex items-center rounded-full bg-accent px-3 py-1 text-sm text-accent-foreground;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* UTILIDAD CUSTOM (top-level, no anidada)                             */
+/* ------------------------------------------------------------------ */
+@utility shadow-soft {
+  box-shadow:
+    0 1px 2px hsl(var(--shadow) / 0.06),
+    0 8px 24px -12px hsl(var(--shadow) / 0.16);
+}
+
+/* ------------------------------------------------------------------ */
+/* UTILITIES                                                           */
+/* ------------------------------------------------------------------ */
+@layer utilities {
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  .animate-float { animation: float 6s ease-in-out infinite; }
+}
+
+/* Respeto de reduced motion para animaciones personalizadas */
+@media (prefers-reduced-motion: reduce) {
+  .animate-float { animation: none !important; }
+}

@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "module": "ESNEXT",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "baseUrl": ".",
+    "paths": { "@/*": ["src/*"] },
+    "types": [ "node", "vite/client" ],
+    "skipLibCheck": true,
+    "useDefineForClassFields": true
+  },
+  "include": [ "src", "vite.confing.ts" ]
+}
