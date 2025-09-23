@@ -17,12 +17,12 @@ export async function getVitalListUIByDni(dni: string): Promise<VitalSignUI[]> {
   return list
     .map((r) => ({
       id: r.id,
-      fecha: r.created_at ?? null,
+      fecha_registro: r.fecha_registro ?? null,
       temperatura: r.temperatura,
       f_card: r.f_card,
       f_resp: r.f_resp,
       talla: r.talla,
       peso: r.peso,
     }))
-    .sort((a, b) => (a.fecha || "").localeCompare(b.fecha || ""));
+    .sort((a, b) => (a.fecha_registro || "").localeCompare(b.fecha_registro || ""));
 }
