@@ -21,7 +21,6 @@ export default async function listUsers(): Promise<User[]> {
   const { data } = await api.get<User[]>(ENDPOINTS.users.list);
   return data;
 }
-
 /** GET /users/{user_id} — solo admin */
 export async function getUserById(userId: number): Promise<User> {
   ensureAdmin();

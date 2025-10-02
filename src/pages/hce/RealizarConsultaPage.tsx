@@ -18,6 +18,8 @@ import ConfirmacionConsultaModal from "@/components/Historial/ConfirmacionConsul
 import predictFromDni, { type PredictRequest } from "@/service/predict/predictFromDni";
 import type { HistorialItem } from "@/types/history";
 import EmptyState from "@/components/common/EmptyState";
+import ModalMensaje from "@/components/common/ModalMensaje";
+
 
 type PredictResponse = {
   resultado_diagnostico?: string;
@@ -37,6 +39,9 @@ export default function RealizarConsultaPage() {
 
   const { accion, setAccion, bloques, agregarBloque, eliminarBloque, limpiarBloques } = useBloques();
   const { historial, pacienteHeader, loading, error, reload } = useHistorialByDni(dni);
+
+  const [errorOpen, setErrorOpen] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -93,7 +98,26 @@ export default function RealizarConsultaPage() {
       setAccion(null);
     } catch (e: any) {
       console.error("Error al enviar predicción:", e);
-      alert("Error al enviar predicción: " + (e?.message || "desconocido"));
+      const status = e?.response?.status ?? e?.status;
+
+      if (status === 500) {
+        setErrorMsg(
+          "Los datos ingresados no son soportados por el modelo. " +
+          "Es probable que el diagnóstico corresponda a otra enfermedad o que el texto contenga términos fuera del dominio. " +
+          "Revisa 'Motivo de consulta' y 'Examen físico' y vuelve a intentarlo."
+        );
+        setErrorOpen(true);
+      } else if (status === 400 || status === 422) {
+        setErrorMsg("Datos faltantes o con formato inválido. Verifica los campos y vuelve a intentar.");
+        setErrorOpen(true);
+      } else {
+        setErrorMsg(
+          "Los datos ingresados no son soportados por el modelo. " +
+          "Es probable que el diagnóstico corresponda a otra enfermedad o que el texto contenga términos fuera del dominio. " +
+          "Revisa 'Motivo de consulta' y 'Examen físico' y vuelve a intentarlo."
+        );
+        setErrorOpen(true);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -224,6 +248,12 @@ export default function RealizarConsultaPage() {
             navigate("/historia-clinica"); // fallback si no hay dni
           }
         }}
+      />
+
+      <ModalMensaje
+        open={errorOpen}
+        message={errorMsg}
+        onClose={() => setErrorOpen(false)}
       />
     </div>
   );

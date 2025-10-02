@@ -89,13 +89,61 @@ export default function HistorialCard({ item, index }: { item: HistorialItem; in
       ) : null}
 
       {meds.length ? (
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 font-sans">
           <h4 className="text-blue-800 text-sm font-semibold mb-2">Medicamentos</h4>
-          <ul className="list-disc pl-5 text-sm text-slate-700 space-y-1">
-            {meds.map((m, i) => <li key={i}>{m}</li>)}
-          </ul>
+
+          {(() => {
+            type Med = { nombre: string; dosis?: string; frecuencia?: string };
+
+            const medsParsed: Med[] = meds.map((s) => {
+              const [nombre, dosis, frecuencia] = String(s).split(/\s*(?:•|-|\|)\s*/);
+              return { nombre: nombre || String(s), dosis, frecuencia };
+            });
+
+            return (
+              <div className="space-y-2">
+                <div className="hidden md:grid grid-cols-12 gap-2 text-xs text-slate-500 px-2">
+                  <div className="col-span-4">Medicamento</div>
+                  <div className="col-span-4">Dosis</div>
+                  <div className="col-span-4">Frecuencia</div>
+                </div>
+
+                <ul className="space-y-2">
+                  {medsParsed.map((m, i) => (
+                    <li
+                      key={i}
+                      className="bg-blue-50/60 ring-1 ring-blue-200 rounded-lg px-3 py-2"
+                    >
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
+                        <div className="md:col-span-4">
+                          <div className="md:hidden text-xs text-slate-500">Medicamento</div>
+                          {/* aquí quitamos bold y azul */}
+                          <div className="text-slate-700 break-words">
+                            {m.nombre || "—"}
+                          </div>
+                        </div>
+                        <div className="md:col-span-4">
+                          <div className="md:hidden text-xs text-slate-500">Dosis</div>
+                          <div className="text-slate-700 break-words">
+                            {m.dosis || "—"}
+                          </div>
+                        </div>
+                        <div className="md:col-span-4">
+                          <div className="md:hidden text-xs text-slate-500">Frecuencia</div>
+                          <div className="text-slate-700 break-words">
+                            {m.frecuencia || "—"}
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })()}
         </div>
       ) : null}
+
 
       {item.notas ? (
         <div className="bg-white border border-slate-200 rounded-xl p-4">

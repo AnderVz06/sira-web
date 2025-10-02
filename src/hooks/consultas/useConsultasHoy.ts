@@ -29,12 +29,11 @@ export function useConsultasHoy(scope: "all" | "medico" = "all") {
 
 function toUI(it: Consulta): ConsultaUI {
   const nombre = (it.paciente_nombre ?? (it as any).nombre ?? "").trim();
-  // usa paciente_apelido (tal como llega), con fallback por si lo corrigen a paciente_apellido
   const apellido = ((it as any).paciente_apelido ?? (it as any).paciente_apellido ?? (it as any).apellido ?? "").trim();
   const hce = (it.paciente_hce ?? (it as any).hce ?? "").trim();
   const dni = (it.dni ?? "").trim();
 
-  const llegada = it.created_at ?? ""; // si tu API trae llegada explícita, úsala aquí
+  const llegada = it.created_at ?? "";
   const cita = buildCitaIso(it.anio, it.mes, it.dia, it.hora, it.minuto) ?? llegada ?? "";
 
   const estado = (it.status as Status) ?? "En espera";
@@ -50,8 +49,10 @@ function toUI(it: Consulta): ConsultaUI {
     llegada,
     cita,
     medico: it.user_fullname_medic,
+    edit_status: Boolean(it.edit_status),
   };
 }
+
 
 function pad2(n: number) { return String(n).padStart(2, "0"); }
 /** Construye ISO tipo 2025-09-13T16:30:00 a partir de (anio, mes, dia, hora, minuto) */

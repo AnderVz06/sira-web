@@ -9,7 +9,9 @@ import {
   HiOutlineExclamationCircle,
   HiOutlineCheck,
   HiOutlineCheckCircle,
+  HiOutlinePlus,
 } from "react-icons/hi";
+import { FiTrash2 } from "react-icons/fi";
 import { useLastPredictByDni, type PredictRecord } from "@/hooks/history/useLastPredictByDni";
 import { useUpdatePredictByDni, type UpdatePredictPayload } from "@/hooks/history/useUpdatePredictByDni";
 import { isOutOfDomain } from "@/utils/non_respitatory";
@@ -19,11 +21,13 @@ export default function EditarConsultaModal({
   onClose,
   dni,
   diagnosticoApi,
+  onSaved,
 }: {
   open: boolean;
   onClose: () => void;
   dni: string | null;
   diagnosticoApi?: string;
+  onSaved?: () => void;
 }) {
   const { data, loading, error, reload } = useLastPredictByDni(dni ?? undefined);
   const { update, loading: saving, error: saveError } = useUpdatePredictByDni();
@@ -98,6 +102,7 @@ export default function EditarConsultaModal({
       const nextDx = (updated?.resultado && updated.resultado.trim()) || dxFinal;
       setSuccessDx(nextDx || "—");
       setSuccessOpen(true);
+      onSaved?.();
     } catch {
       // el banner con saveError ya se muestra abajo
     }
@@ -148,6 +153,7 @@ export default function EditarConsultaModal({
                         <span>Editar consulta</span>
                       </Dialog.Title>
                       <button
+                        type="button"
                         onClick={onClose}
                         className="h-9 w-9 grid place-content-center rounded-lg bg-white/15 text-white hover:bg-white/25"
                         title="Cerrar"
@@ -175,7 +181,7 @@ export default function EditarConsultaModal({
                         <span className="truncate">
                           Ocurrió un error al obtener los datos: <b>{loadError}</b>
                         </span>
-                        <button className="underline ml-auto" onClick={() => reload()}>
+                        <button type="button" className="underline ml-auto" onClick={() => reload()}>
                           Reintentar
                         </button>
                       </Banner>
@@ -235,11 +241,13 @@ export default function EditarConsultaModal({
                       value={form.indicaciones}
                       onChange={(v) => up("indicaciones", v as PredictRecord["indicaciones"])}
                     />
-                    <EditableBlock
-                      label="Medicamentos"
+
+                    {/* Medicamentos con editor propio */}
+                    <MedicamentosEditor
                       value={form.medicamentos}
                       onChange={(v) => up("medicamentos", v as PredictRecord["medicamentos"])}
                     />
+
                     <EditableBlock
                       label="Notas"
                       value={form.notas}
@@ -255,12 +263,14 @@ export default function EditarConsultaModal({
                       </span>
                       <div className="flex items-center gap-2">
                         <button
+                          type="button"
                           onClick={onClose}
                           className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
                         >
                           Volver
                         </button>
                         <button
+                          type="button"
                           onClick={handleSave}
                           disabled={saving || loading || !touched}
                           className="rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -353,6 +363,7 @@ function EditableBlock({
 
         {!editing ? (
           <button
+            type="button"
             className={[
               "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium ring-1",
               invalid
@@ -368,6 +379,7 @@ function EditableBlock({
         ) : (
           <div className="flex items-center gap-1.5">
             <button
+              type="button"
               className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold ring-1 ring-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
               onClick={commit}
               title="Guardar"
@@ -376,6 +388,7 @@ function EditableBlock({
               Guardar
             </button>
             <button
+              type="button"
               className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold ring-1 ring-slate-200 text-slate-600 bg-white hover:bg-slate-50"
               onClick={cancel}
               title="Cancelar"
@@ -433,6 +446,195 @@ function AutoTextarea({
   );
 }
 
+/* --------- Editor de Medicamentos --------- */
+
+function MedicamentosEditor({
+  value,
+  onChange,
+}: {
+  value?: string;
+  onChange: (v: string) => void;
+}) {
+  type Med = { nombre: string; dosis: string; frecuencia: string };
+
+  // Parseo: "Nombre - Dosis - Frecuencia" (separadores • - |), ítems separados por comas.
+  const parseMeds = (s?: string): Med[] => {
+    const items = s ? s.split(/\s*,\s*/).filter(Boolean) : [];
+    if (!items.length) return [{ nombre: "", dosis: "", frecuencia: "" }];
+    return items.map((raw) => {
+      const [n, d, f] = String(raw).split(/\s*(?:•|-|\|)\s*/);
+      return {
+        nombre: (n ?? "").trim(),
+        dosis: (d ?? "").trim(),
+        frecuencia: (f ?? "").trim(),
+      };
+    });
+  };
+
+  const serializeMeds = (arr: Med[]) =>
+    arr
+      .filter((m) => m.nombre.trim() || m.dosis.trim() || m.frecuencia.trim())
+      .map((m) => `${m.nombre || ""} - ${m.dosis || ""} - ${m.frecuencia || ""}`)
+      .join(", ");
+
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<Med[]>(() => parseMeds(value));
+
+  useEffect(() => {
+    if (!editing) setDraft(parseMeds(value));
+  }, [value, editing]);
+
+  const addMed = () => setDraft((prev) => [...prev, { nombre: "", dosis: "", frecuencia: "" }]);
+  const updateMed = (i: number, key: keyof Med, val: string) =>
+    setDraft((prev) => prev.map((m, idx) => (idx === i ? { ...m, [key]: val } : m)));
+  const removeMed = (i: number) =>
+    setDraft((prev) => (prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev));
+
+  const commit = () => {
+    onChange(serializeMeds(draft));
+    setEditing(false);
+  };
+  const cancel = () => {
+    setDraft(parseMeds(value));
+    setEditing(false);
+  };
+
+  const hasChanges = serializeMeds(draft) !== (value ?? "");
+
+  return (
+    <div className="bg-white rounded-xl p-4 ring-1 ring-slate-200">
+      <div className="flex items-start justify-between gap-3">
+        <div className="text-xs font-semibold text-slate-500">Medicamentos</div>
+
+        {!editing ? (
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium ring-1 ring-slate-200 text-slate-600 hover:bg-slate-50"
+            title="Editar"
+          >
+            <HiOutlinePencilAlt className="h-4 w-4" />
+            Editar
+          </button>
+        ) : (
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={commit}
+              disabled={!hasChanges}
+              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold ring-1 ring-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50"
+              title="Guardar"
+            >
+              <HiOutlineCheck className="h-4 w-4" />
+              Guardar
+            </button>
+            <button
+              type="button"
+              onClick={cancel}
+              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold ring-1 ring-slate-200 text-slate-600 bg-white hover:bg-slate-50"
+              title="Cancelar"
+            >
+              <HiOutlineX className="h-4 w-4" />
+              Cancelar
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Encabezados md+ */}
+      <div className="hidden md:grid grid-cols-12 gap-2 text-xs text-slate-500 px-2 mt-2">
+        <div className="col-span-4">Medicamento</div>
+        <div className="col-span-4">Dosis</div>
+        <div className="col-span-4">Frecuencia</div>
+      </div>
+
+      {/* Lista / editor */}
+      <ul className="mt-2 space-y-2">
+        {draft.map((m, i) => (
+          <li key={i} className="bg-blue-50/60 ring-1 ring-blue-200 rounded-lg px-3 py-2">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
+              {/* Medicamento */}
+              <div className="md:col-span-4">
+                <div className="md:hidden text-xs text-slate-500">Medicamento</div>
+                {!editing ? (
+                  <div className="text-slate-700 break-words">{m.nombre || "—"}</div>
+                ) : (
+                  <input
+                    value={m.nombre}
+                    onChange={(e) => updateMed(i, "nombre", e.target.value)}
+                    placeholder="Ej: Paracetamol"
+                    className="w-full border rounded-md px-3 py-2 text-sm text-slate-700 border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  />
+                )}
+              </div>
+
+              {/* Dosis */}
+              <div className="md:col-span-4">
+                <div className="md:hidden text-xs text-slate-500">Dosis</div>
+                {!editing ? (
+                  <div className="text-slate-700 break-words">{m.dosis || "—"}</div>
+                ) : (
+                  <input
+                    value={m.dosis}
+                    onChange={(e) => updateMed(i, "dosis", e.target.value)}
+                    placeholder="Ej: 500 mg"
+                    className="w-full border rounded-md px-3 py-2 text-sm text-slate-700 border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  />
+                )}
+              </div>
+
+              {/* Frecuencia */}
+              <div className="md:col-span-4 flex gap-2">
+                <div className="flex-1">
+                  <div className="md:hidden text-xs text-slate-500">Frecuencia</div>
+                  {!editing ? (
+                    <div className="text-slate-700 break-words">{m.frecuencia || "—"}</div>
+                  ) : (
+                    <input
+                      value={m.frecuencia}
+                      onChange={(e) => updateMed(i, "frecuencia", e.target.value)}
+                      placeholder="Ej: cada 8 h"
+                      className="w-full border rounded-md px-3 py-2 text-sm text-slate-700 border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    />
+                  )}
+                </div>
+
+                {/* Quitar fila solo en modo edición */}
+                {editing && draft.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeMed(i)}
+                    className="px-3 rounded-md bg-red-50 text-red-700 ring-1 ring-red-200 hover:bg-red-100 shrink-0"
+                    title="Quitar"
+                  >
+                    <FiTrash2 className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      {/* Añadir fila solo en edición */}
+      {editing && (
+        <div className="pt-2">
+          <button
+            type="button"
+            onClick={addMed}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-white text-blue-700 ring-1 ring-blue-200 hover:bg-blue-50"
+          >
+            <HiOutlinePlus className="h-4 w-4" />
+            Añadir medicamento
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* --------- Modal de éxito --------- */
+
 function SuccessDialog({
   open,
   dx,
@@ -486,9 +688,7 @@ function SuccessDialog({
                   <div className="mt-4 rounded-xl ring-1 ring-blue-200 bg-gradient-to-br from-blue-50 to-white p-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide text-blue-700">
-                        {/* mismo look & feel de cabecera */}
                         <span className="inline-flex items-center gap-2">
-                          {/* opcional: puedes usar HiOutlineDocumentReport si quieres */}
                           Nuevo diagnóstico / Resultado
                         </span>
                       </div>
@@ -508,6 +708,7 @@ function SuccessDialog({
 
                   <div className="mt-6 flex justify-end">
                     <button
+                      type="button"
                       onClick={onClose}
                       className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
                     >
@@ -523,4 +724,3 @@ function SuccessDialog({
     </Transition>
   );
 }
-

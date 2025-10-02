@@ -52,6 +52,7 @@ export const ENDPOINTS = {
     hoyMedico: "/consultas/hoy/medico" as const,                    // GET
     totalMedico: "/consultas/total/medico" as const,                // GET
     totalMedicoUltimos7Dias: "/consultas/total/medico/ultimos7dias" as const, // GET
+    updateEditConsutation: (consulta_id: number) => `/consultas/${consulta_id}/edit-status` as const,
   },
   historial: {
     /** GET /api/v1/historial/{dni} */

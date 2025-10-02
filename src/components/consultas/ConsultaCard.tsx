@@ -1,10 +1,12 @@
 // src/components/consultas/ConsultaCard.tsx
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import type { ConsultaUI } from "@/types/consultation";
-import EditarConsultaModal from "@/components/consultas/editarConsultaModal"; // <-- ajusta la ruta
+import EditarConsultaModal from "@/components/consultas/editarConsultaModal";
+import { setConsultaEditStatus } from "@/service/consultation/consultation"; // PATCH true/false
 
+// Mapa de roles (1=admin, 2=médico, 3=enfermero)
 const ROLE_ENFERMERO = 3;
+
 function getCurrentRoleId(): number | undefined {
   const rawA = localStorage.getItem("auth_role_id") ?? sessionStorage.getItem("auth_role_id");
   const rawB = localStorage.getItem("role_id") ?? sessionStorage.getItem("role_id");
@@ -25,12 +27,14 @@ function formatDate(iso?: string) {
   if (isNaN(d.getTime())) return "—";
   return d.toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" }).replace(/\./g, "");
 }
+
 function formatTime(iso?: string) {
   if (!iso) return "—";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "—";
   return d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
 }
+
 function fmtCountdown(ms: number) {
   const total = Math.max(0, Math.floor(ms / 1000));
   const mm = Math.floor(total / 60);
@@ -39,25 +43,42 @@ function fmtCountdown(ms: number) {
   return `${pad(mm)}:${pad(ss)}`;
 }
 
+// Resuelve el inicio de ventana (prop ISO o (anio,mes,dia,hora,minuto) o "ahora")
+function resolveStartMs(editStartIso?: string, item?: ConsultaUI) {
+  const p = editStartIso ? new Date(editStartIso).getTime() : NaN;
+  if (Number.isFinite(p)) return p;
+
+  const a = (item as any)?.anio;
+  const m = (item as any)?.mes; // 1..12
+  const d = (item as any)?.dia;
+  const h = (item as any)?.hora;
+  const i = (item as any)?.minuto;
+  if ([a, m, d, h, i].every((v) => Number.isFinite(Number(v)))) {
+    const dt = new Date(+a, +m - 1, +d, +h, +i, 0, 0);
+    const t = dt.getTime();
+    if (Number.isFinite(t)) return t;
+  }
+  return Date.now();
+}
+
 export default function ConsultaCard({
   item,
   position,
   canRealizar = false,
   onRealizar,
-  onEditar,          // opcional: si lo pasas, se usa. Si no, abrimos el modal
-  onSaveEdit,        // opcional: callback para guardar cambios del modal
-  editStartIso,      // opcional: fecha_registro del historial para ventana de edición
+  onEditar,
+  onSaveEdit,
+  editStartIso,
 }: {
   item: ConsultaUI;
   position: number;
   canRealizar?: boolean;
   onRealizar?: () => void;
   onEditar?: () => void;
-  onSaveEdit?: (payload: any) => Promise<void> | void; // si tienes el tipo exacto, usa Partial<PredictRecord>
+  onSaveEdit?: (payload: any) => Promise<void> | void;
   editStartIso?: string;
 }) {
-  const navigate = useNavigate();
-  const [showEdit, setShowEdit] = useState(false); // <-- control del modal
+  const [showEdit, setShowEdit] = useState(false);
 
   const roleId = getCurrentRoleId();
   const isEnfermero = roleId === ROLE_ENFERMERO;
@@ -70,79 +91,127 @@ export default function ConsultaCard({
   const parts = displayName.split(/\s+/).filter(Boolean);
   const initials = (parts[0]?.[0] ?? "").toUpperCase() + (parts[1]?.[0] ?? "").toUpperCase();
 
-  // Chip por estado
+  // Estado y chip
   const estadoStr = String(item.estado);
+  const isTerminado = estadoStr === "Terminado";
   const chip =
     (statusMap as Record<string, (typeof statusMap)[keyof typeof statusMap]>)[estadoStr] ??
     { text: "text-slate-700", bg: "bg-slate-50", ring: "ring-slate-200" };
 
-  // ===== Ventana de edición (5 min) =====
-  const isTerminado = estadoStr === "Terminado";
+  // ===== LÓGICA DE EDIT (enganche a edit_status del backend) =====
   const EDIT_WINDOW_MS = 5 * 60 * 1000;
 
-  // Si viene por prop (fecha_registro), úsalo como inicio
-  const propStartMs = editStartIso ? new Date(editStartIso).getTime() : NaN;
+  // 1) Estado de edición del BACK (clave para mostrar/ocultar timer)
+  const [serverEditStatus, setServerEditStatus] = useState<boolean>(Boolean((item as any).edit_status));
+  useEffect(() => {
+    setServerEditStatus(Boolean((item as any).edit_status));
+  }, [(item as any).edit_status]);
 
-  // Clave estable para guardar el inicio local en localStorage (si no hay prop)
+  // 2) Clave estable para storage local
   const getEditKey = () => {
     const anyItem = item as any;
-    const idish =
-      anyItem.id ??
-      `${item.dni ?? ""}-${item.hce ?? ""}-${item.cita ?? ""}`;
+    const idish = anyItem.id ?? `${item.dni ?? ""}-${item.hce ?? ""}-${item.cita ?? ""}`;
     return `consulta:${idish}:edit_start`;
   };
 
-  // Guardamos el inicio UNA sola vez
+  // 3) Guardamos inicio solo si: Terminado **y** edit_status === true
   const baseStartRef = useRef<number | null>(null);
-
   useEffect(() => {
     if (!isTerminado) {
-      baseStartRef.current = null; // si cambia el estado, resetea la referencia (no borra localStorage)
+      baseStartRef.current = null;
       return;
     }
-    if (baseStartRef.current != null) return; // ya fijado
 
-    let start = Number.isFinite(propStartMs) ? propStartMs : NaN;
-
-    if (!Number.isFinite(start)) {
-      // intenta recuperar de localStorage
-      const saved = localStorage.getItem(getEditKey());
-      const savedN = saved ? Number(saved) : NaN;
-      if (Number.isFinite(savedN)) start = savedN;
+    // Si el backend dice que NO hay edición, no hay timer y limpiamos storage
+    if (!serverEditStatus) {
+      baseStartRef.current = NaN;
+      localStorage.removeItem(getEditKey());
+      return;
     }
 
-    if (!Number.isFinite(start)) {
-      // último recurso: ahora (y persistimos para no resetear en remontajes)
-      start = Date.now();
-      localStorage.setItem(getEditKey(), String(start));
-    }
+    // Ya fijado
+    if (baseStartRef.current != null) return;
 
+    // Recuperar/persistir inicio
+    const saved = localStorage.getItem(getEditKey());
+    if (saved) {
+      baseStartRef.current = Number(saved);
+      return;
+    }
+    const start = resolveStartMs(editStartIso, item);
     baseStartRef.current = start;
-  }, [isTerminado, propStartMs]); // se fija solo una vez por transición a Terminado
+    localStorage.setItem(getEditKey(), String(start));
+  }, [isTerminado, serverEditStatus, editStartIso, item]);
 
-  // Ticker 1s mientras esté en Terminado
+  // 4) Ticker solo cuando está Terminado **y** edit_status === true
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    if (!isTerminado) return;
+    if (!isTerminado || !serverEditStatus) return;
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [isTerminado]);
+  }, [isTerminado, serverEditStatus]);
 
+  // 5) Cómputos (solo si el servidor permite editar)
   const baseStartMs = baseStartRef.current ?? NaN;
   const remainingMs =
-    isTerminado && Number.isFinite(baseStartMs)
+    isTerminado && serverEditStatus && Number.isFinite(baseStartMs)
       ? baseStartMs + EDIT_WINDOW_MS - now
       : -1;
 
-  const canEditNow = isTerminado && Number.isFinite(baseStartMs) && remainingMs > 0;
+  // Habilitado si: Terminado + servidor permite + tiempo > 0
+  const canEditNow = isTerminado && serverEditStatus && Number.isFinite(baseStartMs) && remainingMs > 0;
 
-  // Acción Editar: si pasas onEditar, la usamos; si no, abrimos el modal local
+  // 6) Al expirar: PATCH { edit_status:false }, actualizar estado y limpiar storage
+  const firedRef = useRef(false);
+  useEffect(() => {
+    if (!isTerminado || !serverEditStatus) return;
+    if (remainingMs <= 0 && !firedRef.current && Number.isFinite(baseStartMs)) {
+      firedRef.current = true;
+      (async () => {
+        try {
+          const id = (item as any).id;
+          if (Number.isFinite(Number(id))) {
+            const updated = await setConsultaEditStatus(Number(id), false);
+            setServerEditStatus(Boolean(updated?.edit_status ?? false));
+          } else {
+            setServerEditStatus(false);
+          }
+        } catch (e) {
+          console.error("No se pudo deshabilitar edición:", e);
+          // Aunque falle, ocultamos timer localmente
+          setServerEditStatus(false);
+        } finally {
+          localStorage.removeItem(getEditKey());
+        }
+      })();
+    }
+  }, [remainingMs, isTerminado, serverEditStatus, baseStartMs, item]);
+
+  // === NUEVO: deshabilitar edición inmediatamente tras guardar en el modal ===
+  const disableEditingNow = async () => {
+    try {
+      const id = (item as any).id;
+      if (Number.isFinite(Number(id))) {
+        // Mantén backend consistente
+        await setConsultaEditStatus(Number(id), false);
+      }
+    } catch (e) {
+      console.warn("No se pudo deshabilitar edición en el servidor, se desactiva localmente:", e);
+    } finally {
+      // apaga timer y limpia storage local
+      setServerEditStatus(false);
+      baseStartRef.current = NaN;
+      localStorage.removeItem(getEditKey());
+    }
+  };
+
+  // Acción Editar
   const goToEdit = () => {
+    if (!canEditNow) return;
     if (onEditar) {
       onEditar();
       return;
     }
-    // Abrir modal local
     setShowEdit(true);
   };
 
@@ -195,21 +264,32 @@ export default function ConsultaCard({
         {/* Acciones (ocultar para enfermería) */}
         {!isEnfermero && (
           <div className="mt-4 w-full">
-            {isTerminado ? (
-              canEditNow ? (
-                <button
-                  onClick={goToEdit}
-                  className="w-full h-12 rounded-xl font-semibold text-base shadow transition-all bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-md"
-                  title="Editar consulta recién terminada"
-                >
-                  Editar consulta
-                  <span className="ml-2 text-white/80 text-xs">({fmtCountdown(remainingMs)})</span>
-                </button>
+            {estadoStr === "Cancelado" ? null : isTerminado ? (
+              serverEditStatus ? (
+                canEditNow ? (
+                  <button
+                    onClick={goToEdit}
+                    className="w-full h-12 rounded-xl font-semibold text-base shadow transition-all bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-md"
+                    title="Editar consulta (disponible por 5 min)"
+                  >
+                    Editar consulta
+                    <span className="ml-2 text-white/80 text-xs">({fmtCountdown(remainingMs)})</span>
+                  </button>
+                ) : (
+                  <button
+                    disabled
+                    className="w-full h-12 rounded-xl font-semibold text-base shadow bg-slate-200 text-slate-500 cursor-not-allowed"
+                    title="Ventana de edición expirada"
+                  >
+                    Consulta terminada
+                  </button>
+                )
               ) : (
+                // edit_status === false => SIN TIMER
                 <button
                   disabled
                   className="w-full h-12 rounded-xl font-semibold text-base shadow bg-slate-200 text-slate-500 cursor-not-allowed"
-                  title="Ventana de edición expirada"
+                  title="Edición no disponible"
                 >
                   Consulta terminada
                 </button>
@@ -228,17 +308,21 @@ export default function ConsultaCard({
               >
                 Realizar consulta
               </button>
-            ) : null /* Cancelado: sin botón */}
+            ) : null}
           </div>
         )}
       </div>
 
-      {/* ===== Modal de edición local ===== */}
+      {/* Modal de edición */}
       {showEdit && (
         <EditarConsultaModal
           open={showEdit}
           onClose={() => setShowEdit(false)}
           dni={item.dni ?? null}
+          onSaved={async () => {
+            await disableEditingNow(); // apaga timer + PATCH backend + limpia storage
+            setShowEdit(false);
+          }}
         />
       )}
     </>

@@ -11,6 +11,11 @@ export function saveSession(data: SessionData) {
   localStorage.setItem("auth_token_type", data.token_type);
   localStorage.setItem("auth_username", data.username);
   localStorage.setItem("auth_role_id", String(data.role_id));
+
+  // ⬅️ NUEVO: marca que en ESTA pestaña hubo sesión exitosa
+  try {
+    sessionStorage.setItem("auth_had_session", "1");
+  } catch {}
 }
 
 export function clearSession() {

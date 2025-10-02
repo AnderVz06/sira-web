@@ -17,6 +17,7 @@ const Sidebar = () => {
 
   const logout = () => {
     clearSession();
+    try { sessionStorage.removeItem("auth_had_session"); } catch {}
     navigate("/"); // ajusta si corresponde
   };
 

@@ -2,12 +2,12 @@ export type ConsultaPayload = {
   status: string;
   dni: string;
   user_fullname_medic: string;
+  edit_status?: boolean;
   dia: number;
   hora: number;
   minuto: number;
 };
 
-/** Estructura base (ajústala si tu backend retorna más campos) */
 export type Consulta = Partial<{
   id: number;
   created_at: string;
@@ -15,14 +15,17 @@ export type Consulta = Partial<{
   // campos del backend:
   paciente_hce: string;
   paciente_nombre: string;
-  paciente_apelido: string;   // <- tal como llega hoy (con typo)
-  paciente_apellido: string;  // <- por si lo corrigen mañana
+  paciente_apelido: string;   // (typo que a veces llega)
+  paciente_apellido: string;
 
   anio: number;
-  mes: number;     // 1..12 (según tu ejemplo: 9 = setiembre)
+  mes: number;    // 1..12
   dia: number;
   hora: number;
   minuto: number;
+
+  status: "En espera" | "Terminado" | "Cancelado";
+  edit_status: boolean;
 }> & ConsultaPayload;
 
 export type Status = "En espera" | "Terminado" | "Cancelado";
@@ -31,6 +34,7 @@ export type ConsultaUI = {
   id: number;
   nombre: string;
   apellido: string;
+  edit_status?: boolean;
   hce: string;
   dni: string;
   estado: Status;

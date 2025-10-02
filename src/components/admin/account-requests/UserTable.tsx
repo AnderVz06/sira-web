@@ -1,9 +1,6 @@
 import { useMemo, useState } from "react";
 import type { AccountRequest } from "@/types/accountRequests";
-import {
-  approveAccountRequest,
-  createUserFromAccountRequest,
-} from "@/service/access/accountRequests";
+import { createUserFromAccountRequest } from "@/service/access/accountRequests";
 import { toast } from "@/components/ui/Toast";
 
 export function UserTable({
@@ -28,18 +25,15 @@ export function UserTable({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
-  // Marca local de aprobados (optimista)
-  const [approvedNow, setApprovedNow] = useState<Record<number, boolean>>({});
-
   const byId = useMemo(() => {
     const map: Record<number, AccountRequest> = {};
     rows.forEach((r) => (map[r.id] = r));
     return map;
   }, [rows]);
 
-  const isApproved = (r: AccountRequest) => {
+  const isApprovedFromStatus = (r: AccountRequest) => {
     const st = (r.status || "").toLowerCase();
-    return st === "approved" || st === "aprobado" || approvedNow[r.id] === true;
+    return st === "approved" || st === "aprobado";
   };
 
   // ---------------- helpers ----------------
@@ -47,11 +41,11 @@ export function UserTable({
   const slugifyDot = (s: string) =>
     s
       .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")       // quitar diacríticos
+      .replace(/[\u0300-\u036f]/g, "") // quitar diacríticos
       .toLowerCase()
-      .replace(/[^a-z0-9.]+/g, "")          // solo letras/números/punto
-      .replace(/\.+/g, ".")                  // colapsar múltiples puntos
-      .replace(/^\.+|\.+$/g, "")             // quitar puntos al inicio/fin
+      .replace(/[^a-z0-9.]+/g, "") // solo letras/números/punto
+      .replace(/\.+/g, ".") // colapsar múltiples puntos
+      .replace(/^\.+|\.+$/g, "") // quitar puntos al inicio/fin
       .slice(0, 32);
 
   /** Username derivado del NOMBRE: nombre.apellido */
@@ -124,7 +118,7 @@ export function UserTable({
     setGenPass(generatePassword(12));
   };
 
-  /** Regenera manteniendo patrón nombre.apellido con sufijo numérico */
+  /** Regenera manteniendo patrón nombre.apellido */
   const regenUser = () => {
     if (creatingId == null) return;
     const r = byId[creatingId];
@@ -165,27 +159,6 @@ export function UserTable({
     }
   };
 
-  const doApprove = async (id: number) => {
-    setBusy(true);
-    setErr("");
-    try {
-      const res = await approveAccountRequest(id); // { message }
-      setApprovedNow((map) => ({ ...map, [id]: true }));
-      toast.success(res?.message || "Solicitud aprobada.");
-      onAfterAction?.();
-    } catch (e: any) {
-      const msg =
-        e?.response?.data?.detail ||
-        e?.response?.data?.message ||
-        e?.message ||
-        "No se pudo aprobar";
-      setErr(String(msg));
-      toast.error(String(msg));
-    } finally {
-      setBusy(false);
-    }
-  };
-
   // ---------------- render ----------------
   return (
     <div className="mt-4 overflow-x-auto">
@@ -210,7 +183,7 @@ export function UserTable({
         </thead>
         <tbody>
           {rows.map((r) => {
-            const approved = isApproved(r);
+            const approved = isApprovedFromStatus(r);
             return (
               <tr key={r.id} className="border-t border-slate-200">
                 <td className="px-2 py-2 align-top">
@@ -240,19 +213,12 @@ export function UserTable({
                 </td>
                 <td className="px-2 py-2 align-top">
                   <div className="flex flex-wrap gap-2">
-                    <button
-                      className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-white hover:bg-emerald-700 disabled:opacity-60"
-                      onClick={() => doApprove(r.id)}
-                      disabled={busy || approved}
-                      title={approved ? "Ya está aprobado" : "Aprobar solicitud"}
-                    >
-                      Aprobar
-                    </button>
+                    {/* ÚNICA acción disponible: Crear usuario */}
                     <button
                       className="rounded-lg bg-blue-600 px-2.5 py-1.5 text-white hover:bg-blue-700 disabled:opacity-60"
                       onClick={() => openCreate(r.id)}
-                      disabled={busy || !approved}
-                      title={approved ? "Crear usuario para esta solicitud" : "Primero apruebe la solicitud"}
+                      disabled={busy}
+                      title="Crear usuario para esta solicitud"
                     >
                       Crear usuario
                     </button>
@@ -300,9 +266,16 @@ export function UserTable({
                   >
                     Copiar
                   </button>
+                  <button
+                    type="button"
+                    onClick={regenUser}
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50"
+                  >
+                    Regenerar
+                  </button>
                 </div>
                 <p className="mt-1 text-[11px] text-slate-500">
-                  Formato: <code>nombre.apellido</code> (sin acentos). “Regenerar” añade un sufijo numérico.
+                  Formato: <code>nombre.apellido</code> (sin acentos).
                 </p>
               </div>
 

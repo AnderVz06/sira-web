@@ -90,3 +90,16 @@ export async function getConsultasTotalMedicoUltimos7Dias(): Promise<
   const { data } = await api.get(ENDPOINTS.consultas.totalMedicoUltimos7Dias);
   return data;
 }
+
+
+export async function setConsultaEditStatus(
+  consulta_id: number,
+  editStatus: boolean
+): Promise<Consulta> {
+  ensureRole([ROLE_ADMIN, ROLE_MEDICO]);
+  const { data } = await api.patch<Consulta>(
+    ENDPOINTS.consultas.updateEditConsutation(consulta_id),
+    { edit_status: editStatus }
+  );
+  return data;
+}

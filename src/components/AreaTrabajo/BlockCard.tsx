@@ -68,9 +68,9 @@ export default function BlockCard({
   }
 
   if (block.type === "receta") {
-    const { medicamentos, indicaciones } = block.payload;
+    const { medicamentos } = block.payload;
     return (
-      <div className="rounded-2xl ring-1 ring-blue-200 bg-white p-4">
+      <div className="rounded-2xl ring-1 ring-blue-200 bg-white p-4 font-sans">
         <div className="flex items-center justify-between">
           <h4 className="text-blue-700 font-semibold">
             Receta • <span className="font-normal text-slate-500">{fecha}</span>
@@ -96,20 +96,37 @@ export default function BlockCard({
         </div>
 
         <div className="mt-3">
+          {/* Encabezados (opcional) */}
+          <div className="hidden md:grid grid-cols-1 md:grid-cols-12 gap-2 text-xs text-slate-500 px-2 pb-1">
+            <div className="md:col-span-4">Medicamento</div>
+            <div className="md:col-span-4">Dosis</div>
+            <div className="md:col-span-4">Frecuencia</div>
+          </div>
+
           <ul className="space-y-2">
             {medicamentos.map((m, i) => (
-              <li key={i} className="bg-blue-50/60 ring-1 ring-blue-200 rounded-lg px-3 py-2">
-                <span className="font-semibold text-blue-900">{m.nombre}</span>{" "}
-                <span className="text-slate-700">• {m.dosis} • {m.frecuencia}</span>
+              <li
+                key={i}
+                className="bg-blue-50/60 ring-1 ring-blue-200 rounded-lg px-3 py-2"
+              >
+                {/* En móviles se ven las etiquetas; en desktop queda en columnas */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
+                  <div className="md:col-span-4">
+                    <div className="md:hidden text-xs text-slate-500">Medicamento</div>
+                    <div className="text-slate-500">{m.nombre}</div>
+                  </div>
+                  <div className="md:col-span-4">
+                    <div className="md:hidden text-xs text-slate-500">Dosis</div>
+                    <div className="text-slate-700">{m.dosis}</div>
+                  </div>
+                  <div className="md:col-span-4">
+                    <div className="md:hidden text-xs text-slate-500">Frecuencia</div>
+                    <div className="text-slate-700">{m.frecuencia}</div>
+                  </div>
+                </div>
               </li>
             ))}
           </ul>
-          {indicaciones && (
-            <div className="mt-3 bg-white ring-1 ring-slate-200 rounded-lg p-3">
-              <strong className="text-slate-800">Indicaciones: </strong>
-              <span className="text-slate-700">{indicaciones}</span>
-            </div>
-          )}
         </div>
       </div>
     );
@@ -118,10 +135,11 @@ export default function BlockCard({
   if (block.type === "indicaciones") {
     const { indicaciones } = block.payload;
     return (
-      <div className="rounded-2xl ring-1 ring-teal-200 bg-white p-4">
+      <div className="rounded-2xl ring-1 ring-teal-200 bg-white p-4 font-sans">
         <div className="flex items-center justify-between">
           <h4 className="text-teal-700 font-semibold flex items-center gap-2">
-            <HiOutlineClipboardList /> Indicaciones • <span className="font-normal text-slate-500">{fecha}</span>
+            <HiOutlineClipboardList /> Indicaciones •{" "}
+            <span className="font-normal text-slate-500">{fecha}</span>
           </h4>
           <div className="flex items-center gap-2">
             {onEdit && (
@@ -142,46 +160,56 @@ export default function BlockCard({
             </button>
           </div>
         </div>
+
         <div className="mt-3">
-          <pre className="whitespace-pre-wrap text-slate-800 font-normal">{indicaciones}</pre>
+          {/* Forzamos sans también aquí para evitar monospace por defecto del <pre> */}
+          <pre className="whitespace-pre-wrap text-slate-800 font-normal font-sans">
+            {indicaciones}
+          </pre>
         </div>
       </div>
     );
   }
 
+
   // notas
-  const { notas } = block.payload as Extract<Block, { type: "notas" }>["payload"];
-  return (
-    <div className="rounded-2xl ring-1 ring-violet-200 bg-white p-4">
-      <div className="flex items-center justify-between">
-        <h4 className="text-violet-700 font-semibold flex items-center gap-2">
-          <HiOutlineAnnotation /> Notas •{" "}
-          <span className="font-normal text-slate-500">{new Date(block.createdAt).toLocaleString()}</span>
-        </h4>
-        <div className="flex items-center gap-2">
-          {onEdit && (
-            <button
-              onClick={onEdit}
-              className="px-2 py-1 rounded-md bg-slate-50 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100"
-              title="Editar"
-            >
-              <FiEdit2 />
-            </button>
-          )}
+ const { notas } = block.payload as Extract<Block, { type: "notas" }>["payload"];
+return (
+  <div className="rounded-2xl ring-1 ring-violet-200 bg-white p-4 font-sans">
+    <div className="flex items-center justify-between">
+      <h4 className="text-violet-700 font-semibold flex items-center gap-2">
+        <HiOutlineAnnotation /> Notas •{" "}
+        <span className="font-normal text-slate-500">
+          {new Date(block.createdAt).toLocaleString()}
+        </span>
+      </h4>
+      <div className="flex items-center gap-2">
+        {onEdit && (
           <button
-            onClick={onDelete}
-            className="px-2 py-1 rounded-md bg-red-50 text-red-700 ring-1 ring-red-200 hover:bg-red-100"
-            title="Eliminar"
+            onClick={onEdit}
+            className="px-2 py-1 rounded-md bg-slate-50 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100"
+            title="Editar"
           >
-            <FiTrash2 />
+            <FiEdit2 />
           </button>
-        </div>
-      </div>
-      <div className="mt-3">
-        <pre className="whitespace-pre-wrap text-slate-800 font-normal">{notas}</pre>
+        )}
+        <button
+          onClick={onDelete}
+          className="px-2 py-1 rounded-md bg-red-50 text-red-700 ring-1 ring-red-200 hover:bg-red-100"
+          title="Eliminar"
+        >
+          <FiTrash2 />
+        </button>
       </div>
     </div>
-  );
+    <div className="mt-3">
+      <pre className="whitespace-pre-wrap text-slate-800 font-normal font-sans">
+        {notas}
+      </pre>
+    </div>
+  </div>
+);
+
 }
 
 const ItemLine = ({ label, value }: { label: string; value: string }) => (

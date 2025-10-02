@@ -93,7 +93,7 @@ export default function AccessRequestForm(props: AccessRequestFormProps) {
               {/* Área (opcional) */}
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">
-                  Centro / Área (opcional)
+                  Área
                 </label>
                 <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm transition focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-200">
                   <FiHome className="text-slate-400" />
